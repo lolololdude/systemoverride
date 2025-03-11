@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Digital Hack: Byte Runner & System Override</title>
+    <style>
+        body {
+            font-family: monospace;
+            background-color: black;
+            color: lime;
+            text-align: center;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        .game-screen {
+            display: none;
+            white-space: pre;
+            font-size: 20px;
+        }
+
+        .active {
+            display: block;
+        }
+
+        .menu {
+            margin-top: 50px;
+        }
+
+        .btn {
+            background: lime;
+            color: black;
+            padding: 10px;
+            border: none;
+            cursor: pointer;
+            font-size: 18px;
+            margin: 5px;
+        }
+
+        .back-btn {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: red;
+            color: white;
+            padding: 5px;
+            cursor: pointer;
+            display: none;
+        }
+
+        .pipe-section {
+            position: relative;
+            width: 500px;
+            height: 300px;
+            background: gray;
+            margin: auto;
+            margin-top: 20px;
+            overflow: hidden;
+            border: 2px solid lime;
+        }
+
+        .pipe, .red-blockade, .button, .start-box {
+            position: absolute;
+        }
+
+        .pipe {
+            background: black;
+        }
+
+        .red-blockade {
+            background: red;
+        }
+
+        .button {
+            background: blue;
+            color: white;
+            padding: 5px;
+            cursor: pointer;
+        }
+
+        .start-box {
+            background: blue;
+            width: 20px;
+            height: 20px;
+        }
+
+        .movable {
+            cursor: move;
+        }
+
+        #green-circle {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background: lime;
+            border-radius: 50%;
+            display: none;
+            pointer-events: none;
+        }
+
+        .next-level-btn {
+            position: absolute;
+            background: lime;
+            color: black;
+            padding: 5px;
+            border: none;
+            cursor: pointer;
+        }
+
+        .editor {
+            padding-top: 20px;
+        }
+
+        .editor button, .editor input {
+            margin: 5px;
+        }
+
+        .disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .level-catalog {
+            display: inline-block;
+            width: 20%;
+            vertical-align: top;
+        }
+
+        .level-catalog button {
+            width: 100%;
+        }
+
+        .object-editor {
+            display: inline-block;
+            width: 70%;
+        }
+    </style>
+</head>
+<body>
+    <button class="back-btn" onclick="goBack()">⬅ Back</button>
+    
+    <div class="menu">
+        <h1>Digital Hack</h1>
+        <button class="btn" onclick="startGame('runner')">Start Byte Runner</button>
+        <button class="btn" onclick="startGame('hacker')">Start System Override</button>
+    </div>
+
+    <!-- Pipe Puzzle Section -->
+    <div class="pipe-section" id="pipe-game">
+        <div class="pipe movable" id="pipe-1" style="top: 50px; left: 50px; width: 50px; height: 150px;"></div>
+        <div class="red-blockade movable" id="blockade-1" style="top: 100px; left: 200px; width: 50px; height: 150px;"></div>
+        <button class="button movable" id="button-1" style="top: 150px; left: 300px; width: 80px; height: 30px;">Open Door</button>
+        <div class="start-box movable" id="start-box" style="top: 140px; left: 0px; width: 20px; height: 20px;"></div>
+        <button class="next-level-btn movable" id="next-level-btn" style="top: 200px; left: 400px; width: 80px; height: 30px;">Next Level</button>
+        <div id="green-circle"></div>
+    </div>
+
+    <!-- Editor Section -->
+    <div class="editor">
+        <div class="level-catalog">
+            <h3>Level Catalog</h3>
+            <button class="btn" onclick="loadLevel(1)">Level 1</button>
+            <button class="btn" onclick="loadLevel(2)">Level 2</button>
+            <button class="btn" onclick="loadLevel(3)">Level 3</button>
+            <button class="btn" onclick="saveLevel()">Save Current Level</button>
+        </div>
+        <div class="object-editor">
+            <div>
+                <label for="pipe-width">Pipe Width:</label>
+                <input type="number" id="pipe-width" value="50" min="10" max="200">
+                <label for="pipe-height">Height:</label>
+                <input type="number" id="pipe-height" value="150" min="10" max="200">
+            </div>
+            <div>
+                <label for="blockade-width">Blockade Width:</label>
+                <input type="number" id="blockade-width" value="50" min="10" max="200">
+                <label for="blockade-height">Height:</label>
+                <input type="number" id="blockade-height" value="150" min="10" max="200">
+            </div>
+            <div>
+                <label for="button-width">Button Width:</label>
+                <input type="number" id="button-width" value="80" min="50" max="150">
+                <label for="button-height">Height:</label>
+                <input type="number" id="button-height" value="30" min="20" max="50">
+            </div>
+            <button class="btn" onclick="addPipe()">Add Pipe</button>
+            <button class="btn" onclick="addBlockade()">Add Blockade</button>
+            <button class="btn" onclick="addButton()">Add Open Door Button</button>
+            <button class="test-btn btn" onclick="startTesting()">Start Testing</button>
+            <button class="test-btn btn" onclick="exitTesting()" style="display: none;">Exit Testing</button>
+            <div>
+                <h3>Edit Selected Object</h3>
+                <label for="obj-width">Width:</label>
+                <input type="number" id="obj-width" min="10" disabled>
+                <label for="obj-height">Height:</label>
+                <input type="number" id="obj-height" min="10" disabled>
+                <button class="btn" onclick="updateObjectSize()" disabled id="update-size-btn">Update Size</button>
+                <button class="btn" onclick="deleteObject()" disabled id="delete-btn">Delete</button>
+            </div>
+            <div>
+                <h3>Resize Play Area</h3>
+                <label for="area-width">Width:</label>
+                <input type="number" id="area-width" value="500" min="300" max="800">
+                <label for="area-height">Height:</label>
+                <input type="number" id="area-height" value="300" min="200" max="600">
+                <button class="btn" onclick="resizePlayArea()">Resize</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="byte-runner" class="game-screen">
+        <h2>Byte Runner</h2>
+        <pre id="runner-display">[ Player ] ---▓▓▓▓▓▓▓▓▓---</pre>
+        <p>Find the decryption key in System Override to solve:</p>
+        <p>Decrypt this code: 2471</p>
+        <input type="text" id="runner-answer">
+        <button class="btn" onclick="checkRunnerAnswer()">Submit</button>
+        <p id="runner-feedback"></p>
+        <button class="btn" onclick="switchGame('hacker')">Go to System Override</button>
+    </div>
+
+    <div id="system-override" class="game-screen">
+        <h2>System Override</h2>
+        <pre id="hacker-display">ACCESSING SYSTEM...
+[ DECRYPTION KEYS ]
+2 = X
+4 = J
+7 = B
+1 = P</pre>
+        <p>Use these keys to decrypt the code in Byte Runner.</p>
+        <button class="btn" onclick="switchGame('runner')">Return to Byte Runner</button>
+    </div>
+
+    <script>
+        let previousScreen = '';
+        let isPlayMode = false;
+        let currentDraggedObject = null;
+        let selectedObject = null;
+        let offsetX, offsetY;
+        let pipeSection = document.getElementById('pipe-game');
+        let pipeCount = 1;
+        let blockadeCount = 1;
+        let buttonCount = 1;
+        let greenCircle = document.getElementById('green-circle');
+        let enteredThroughStartBox = false;
+        let currentLevel = 1;
+        let startBox = null; // Will be updated in loadLevel
+
+        // Level designs
+        let levels = {
+            1: [
+                { type: 'pipe', id: 'pipe-1', left: 50, top: 50, width: 50, height: 150 },
+                { type: 'red-blockade', id: 'blockade-1', left: 200, top: 100, width: 50, height: 150 },
+                { type: 'button', id: 'button-1', left: 300, top: 150, width: 80, height: 30 },
+                { type: 'start-box', id: 'start-box', left: 0, top: 140, width: 20, height: 20 },
+                { type: 'next-level-btn', id: 'next-level-btn', left: 400, top: 200, width: 80, height: 30 }
+            ],
+            2: [
+                { type: 'pipe', id: 'pipe-1', left: 100, top: 50, width: 50, height: 200 },
+                { type: 'pipe', id: 'pipe-2', left: 300, top: 50, width: 50, height: 200 },
+                { type: 'red-blockade', id: 'blockade-1', left: 200, top: 150, width: 50, height: 50 },
+                { type: 'button', id: 'button-1', left: 150, top: 250, width: 80, height: 30 },
+                { type: 'start-box', id: 'start-box', left: 0, top: 100, width: 20, height: 20 },
+                { type: 'next-level-btn', id: 'next-level-btn', left: 450, top: 250, width: 80, height: 30 }
+            ],
+            3: [
+                { type: 'pipe', id: 'pipe-1', left: 50, top: 100, width: 100, height: 50 },
+                { type: 'red-blockade', id: 'blockade-1', left: 250, top: 50, width: 50, height: 150 },
+                { type: 'red-blockade', id: 'blockade-2', left: 350, top: 150, width: 50, height: 100 },
+                { type: 'button', id: 'button-1', left: 200, top: 200, width: 80, height: 30 },
+                { type: 'start-box', id: 'start-box', left: 0, top: 50, width: 20, height: 20 },
+                { type: 'next-level-btn', id: 'next-level-btn', left: 400, top: 100, width: 80, height: 30 }
+            ]
+        };
+
+        // Load a level
+        function loadLevel(levelNumber) {
+            pipeSection.innerHTML = '<div id="green-circle"></div>';
+            greenCircle = document.getElementById('green-circle');
+            pipeCount = blockadeCount = buttonCount = 0;
+            currentLevel = levelNumber;
+
+            levels[levelNumber].forEach(obj => {
+                let element;
+                if (obj.type === 'button') {
+                    element = document.createElement('button');
+                    element.textContent = 'Open Door';
+                    element.addEventListener('click', () => {
+                        if (isPlayMode) {
+                            openDoor();
+                            console.log('Open Door clicked');
+                        }
+                    });
+                } else if (obj.type === 'next-level-btn') {
+                    element = document.createElement('button');
+                    element.textContent = 'Next Level';
+                    element.addEventListener('click', () => {
+                        if (isPlayMode) {
+                            goToNextLevel();
+                            console.log('Next Level clicked');
+                        }
+                    });
+                } else {
+                    element = document.createElement('div');
+                }
+                element.className = `${obj.type} movable`;
+                element.id = obj.id;
+                element.style.left = obj.left + 'px';
+                element.style.top = obj.top + 'px';
+                element.style.width = obj.width + 'px';
+                element.style.height = obj.height + 'px';
+                pipeSection.appendChild(element);
+                attachDragEvents(element);
+
+                // Update startBox reference and attach events
+                if (obj.type === 'start-box') {
+                    startBox = element;
+                    attachStartBoxEvents();
+                }
+            });
+            console.log(`Loaded Level ${levelNumber}`);
+        }
+
+        // Attach events to start box
+        function attachStartBoxEvents() {
+            let isHoveringStartBox = false;
+            startBox.addEventListener('mouseenter', function() {
+                if (isPlayMode) {
+                    isHoveringStartBox = true;
+                }
+            });
+            startBox.addEventListener('mouseleave', function() {
+                isHoveringStartBox = false;
+            });
+
+            // Remove old keydown listener to avoid duplicates
+            document.removeEventListener('keydown', handleKeyDown);
+            document.addEventListener('keydown', handleKeyDown);
+
+            function handleKeyDown(event) {
+                if (isPlayMode && isHoveringStartBox && event.key === 'e') {
+                    enteredThroughStartBox = true;
+                    const startBoxLeft = parseInt(startBox.style.left);
+                    const startBoxTop = parseInt(startBox.style.top);
+                    greenCircle.style.display = 'block';
+                    greenCircle.style.left = startBoxLeft + 'px';
+                    greenCircle.style.top = startBoxTop + 'px';
+                    console.log('Green circle spawned at start box position');
+                }
+            }
+        }
+
+        // Save current level
+        function saveLevel() {
+            if (isPlayMode) return;
+            const newLevel = [];
+            document.querySelectorAll('.movable').forEach(element => {
+                const type = element.className.split(' ')[0];
+                newLevel.push({
+                    type: type,
+                    id: element.id,
+                    left: parseInt(element.style.left),
+                    top: parseInt(element.style.top),
+                    width: parseInt(element.style.width),
+                    height: parseInt(element.style.height)
+                });
+            });
+            const levelNum = Math.max(...Object.keys(levels).map(Number)) + 1;
+            levels[levelNum] = newLevel;
+            const button = document.createElement('button');
+            button.className = 'btn';
+            button.textContent = `Level ${levelNum}`;
+            button.onclick = () => loadLevel(levelNum);
+            document.querySelector('.level-catalog').appendChild(button);
+            console.log(`Saved as Level ${levelNum}`);
+        }
+
+        // Resize play area
+        function resizePlayArea() {
+            if (isPlayMode) return;
+            const width = document.getElementById('area-width').value + 'px';
+            const height = document.getElementById('area-height').value + 'px';
+            pipeSection.style.width = width;
+            pipeSection.style.height = height;
+            document.querySelectorAll('.movable').forEach(obj => {
+                const objLeft = parseInt(obj.style.left);
+                const objTop = parseInt(obj.style.top);
+                const objWidth = parseInt(obj.style.width);
+                const objHeight = parseInt(obj.style.height);
+                obj.style.left = Math.min(objLeft, parseInt(width) - objWidth) + 'px';
+                obj.style.top = Math.min(objTop, parseInt(height) - objHeight) + 'px';
+            });
+        }
+
+        // Open Door function
+        function openDoor() {
+            if (!isPlayMode) return;
+            document.querySelectorAll('.red-blockade').forEach(blockade => {
+                blockade.style.display = 'none';
+            });
+            console.log('Blockades hidden');
+        }
+
+        // Next Level function (stay in play mode)
+        function goToNextLevel() {
+            if (!isPlayMode) return;
+            const nextLevel = (currentLevel % Object.keys(levels).length) + 1;
+            alert(`Level ${currentLevel} Complete! Moving to Level ${nextLevel}...`);
+            greenCircle.style.display = 'none';
+            enteredThroughStartBox = false;
+            loadLevel(nextLevel);
+            // Remain in play mode
+        }
+
+        // Reset level on loss
+        function resetLevel() {
+            alert('You lost! Resetting level...');
+            greenCircle.style.display = 'none';
+            enteredThroughStartBox = false;
+            loadLevel(currentLevel);
+        }
+
+        // Check collision between two rectangles
+        function checkCollision(rect1, rect2) {
+            return (rect1.left < rect2.right &&
+                    rect1.right > rect2.left &&
+                    rect1.top < rect2.bottom &&
+                    rect1.bottom > rect2.top);
+        }
+
+        // Add new pipe
+        function addPipe() {
+            if (isPlayMode) return;
+            pipeCount++;
+            const width = document.getElementById('pipe-width').value + 'px';
+            const height = document.getElementById('pipe-height').value + 'px';
+            const newPipe = document.createElement('div');
+            newPipe.className = 'pipe movable';
+            newPipe.id = 'pipe-' + pipeCount;
+            newPipe.style.left = '50px';
+            newPipe.style.top = '50px';
+            newPipe.style.width = width;
+            newPipe.style.height = height;
+            pipeSection.appendChild(newPipe);
+            attachDragEvents(newPipe);
+        }
+
+        // Add new blockade
+        function addBlockade() {
+            if (isPlayMode) return;
+            blockadeCount++;
+            const width = document.getElementById('blockade-width').value + 'px';
+            const height = document.getElementById('blockade-height').value + 'px';
+            const newBlockade = document.createElement('div');
+            newBlockade.className = 'red-blockade movable';
+            newBlockade.id = 'blockade-' + blockadeCount;
+            newBlockade.style.left = '100px';
+            newBlockade.style.top = '100px';
+            newBlockade.style.width = width;
+            newBlockade.style.height = height;
+            pipeSection.appendChild(newBlockade);
+            attachDragEvents(newBlockade);
+        }
+
+        // Add new open door button
+        function addButton() {
+            if (isPlayMode) return;
+            buttonCount++;
+            const width = document.getElementById('button-width').value + 'px';
+            const height = document.getElementById('button-height').value + 'px';
+            const newButton = document.createElement('button');
+            newButton.className = 'button movable';
+            newButton.id = 'button-' + buttonCount;
+            newButton.textContent = 'Open Door';
+            newButton.style.left = '150px';
+            newButton.style.top = '150px';
+            newButton.style.width = width;
+            newButton.style.height = height;
+            newButton.addEventListener('click', () => {
+                if (isPlayMode) {
+                    openDoor();
+                    console.log('New Open Door button clicked');
+                }
+            });
+            pipeSection.appendChild(newButton);
+            attachDragEvents(newButton);
+        }
+
+        // Attach drag and selection events
+        function attachDragEvents(element) {
+            element.addEventListener('mousedown', function(event) {
+                if (isPlayMode) return;
+                currentDraggedObject = element;
+                selectedObject = element;
+                const rect = element.getBoundingClientRect();
+                offsetX = event.clientX - rect.left;
+                offsetY = event.clientY - rect.top;
+                event.preventDefault();
+                updateEditorFields();
+            });
+        }
+
+        // Initialize drag events for initial elements
+        document.querySelectorAll('.movable').forEach(element => {
+            attachDragEvents(element);
+            if (element.classList.contains('button')) {
+                element.addEventListener('click', () => {
+                    if (isPlayMode) {
+                        openDoor();
+                        console.log('Initial Open Door button clicked');
+                    }
+                });
+            } else if (element.classList.contains('next-level-btn')) {
+                element.addEventListener('click', () => {
+                    if (isPlayMode) {
+                        goToNextLevel();
+                        console.log('Initial Next Level button clicked');
+                    }
+                });
+            }
+        });
+
+        // Update editor fields
+        function updateEditorFields() {
+            if (selectedObject) {
+                document.getElementById('obj-width').value = parseInt(selectedObject.style.width);
+                document.getElementById('obj-height').value = parseInt(selectedObject.style.height);
+                document.getElementById('obj-width').disabled = false;
+                document.getElementById('obj-height').disabled = false;
+                document.getElementById('update-size-btn').disabled = false;
+                document.getElementById('delete-btn').disabled = false;
+            } else {
+                document.getElementById('obj-width').value = '';
+                document.getElementById('obj-height').value = '';
+                document.getElementById('obj-width').disabled = true;
+                document.getElementById('obj-height').disabled = true;
+                document.getElementById('update-size-btn').disabled = true;
+                document.getElementById('delete-btn').disabled = true;
+            }
+        }
+
+        // Update selected object size
+        function updateObjectSize() {
+            if (selectedObject && !isPlayMode) {
+                const width = document.getElementById('obj-width').value + 'px';
+                const height = document.getElementById('obj-height').value + 'px';
+                selectedObject.style.width = width;
+                selectedObject.style.height = height;
+            }
+        }
+
+        // Delete selected object
+        function deleteObject() {
+            if (selectedObject && !isPlayMode) {
+                selectedObject.remove();
+                selectedObject = null;
+                updateEditorFields();
+            }
+        }
+
+        // Global mouse move event with collision detection
+        document.addEventListener('mousemove', function(event) {
+            const pipeRect = pipeSection.getBoundingClientRect();
+            const mouseX = event.clientX;
+            const mouseY = event.clientY;
+
+            // Dragging logic
+            if (currentDraggedObject && !isPlayMode) {
+                let newLeft = mouseX - pipeRect.left - offsetX;
+                let newTop = mouseY - pipeRect.top - offsetY;
+                const objWidth = currentDraggedObject.offsetWidth;
+                const objHeight = currentDraggedObject.offsetHeight;
+
+                newLeft = Math.max(0, Math.min(newLeft, pipeRect.width - objWidth));
+                newTop = Math.max(0, Math.min(newTop, pipeRect.height - objHeight));
+
+                currentDraggedObject.style.left = newLeft + 'px';
+                currentDraggedObject.style.top = newTop + 'px';
+            }
+
+            // Green circle logic with collision detection
+            if (isPlayMode && enteredThroughStartBox &&
+                mouseX >= pipeRect.left && mouseX <= pipeRect.right &&
+                mouseY >= pipeRect.top && mouseY <= pipeRect.bottom) {
+                greenCircle.style.display = 'block';
+                greenCircle.style.left = (mouseX - pipeRect.left - 10) + 'px';
+                greenCircle.style.top = (mouseY - pipeRect.top - 10) + 'px';
+
+                // Check collision with pipes and blockades
+                const circleRect = {
+                    left: parseInt(greenCircle.style.left),
+                    top: parseInt(greenCircle.style.top),
+                    right: parseInt(greenCircle.style.left) + greenCircle.offsetWidth,
+                    bottom: parseInt(greenCircle.style.top) + greenCircle.offsetHeight
+                };
+
+                const pipes = document.querySelectorAll('.pipe');
+                const blockades = document.querySelectorAll('.red-blockade');
+
+                for (let pipe of pipes) {
+                    const pipeRect = {
+                        left: parseInt(pipe.style.left),
+                        top: parseInt(pipe.style.top),
+                        right: parseInt(pipe.style.left) + pipe.offsetWidth,
+                        bottom: parseInt(pipe.style.top) + pipe.offsetHeight
+                    };
+                    if (checkCollision(circleRect, pipeRect)) {
+                        resetLevel();
+                        return;
+                    }
+                }
+
+                for (let blockade of blockades) {
+                    if (blockade.style.display !== 'none') {
+                        const blockadeRect = {
+                            left: parseInt(blockade.style.left),
+                            top: parseInt(blockade.style.top),
+                            right: parseInt(blockade.style.left) + blockade.offsetWidth,
+                            bottom: parseInt(blockade.style.top) + blockade.offsetHeight
+                        };
+                        if (checkCollision(circleRect, blockadeRect)) {
+                            resetLevel();
+                            return;
+                        }
+                    }
+                }
+            } else if (isPlayMode) {
+                greenCircle.style.display = 'none';
+            }
+        });
+
+        // Stop dragging
+        document.addEventListener('mouseup', function() {
+            currentDraggedObject = null;
+        });
+
+        // Hide green circle when exiting
+        pipeSection.addEventListener('mouseleave', function() {
+            if (isPlayMode) {
+                greenCircle.style.display = 'none';
+                enteredThroughStartBox = false;
+                console.log('Exited play area');
+            }
+        });
+
+        // Start Testing
+        function startTesting() {
+            isPlayMode = true;
+            enteredThroughStartBox = false;
+            greenCircle.style.display = 'none';
+            document.querySelector('.editor').querySelectorAll('button').forEach(btn => {
+                if (btn.textContent !== 'Exit Testing') {
+                    btn.classList.add('disabled');
+                    btn.disabled = true;
+                }
+            });
+            document.querySelector('.test-btn[onclick="startTesting()"]').style.display = 'none';
+            document.querySelector('.test-btn[onclick="exitTesting()"]').style.display = 'inline-block';
+            document.querySelectorAll('.movable').forEach(element => {
+                element.style.cursor = 'default';
+            });
+        }
+
+        // Exit Testing
+        function exitTesting() {
+            isPlayMode = false;
+            greenCircle.style.display = 'none';
+            enteredThroughStartBox = false;
+            document.querySelector('.editor').querySelectorAll('button').forEach(btn => {
+                btn.classList.remove('disabled');
+                btn.disabled = false;
+            });
+            document.querySelector('.test-btn[onclick="startTesting()"]').style.display = 'inline-block';
+            document.querySelector('.test-btn[onclick="exitTesting()"]').style.display = 'none';
+            document.querySelectorAll('.movable').forEach(element => {
+                element.style.cursor = 'move';
+            });
+        }
+
+        // Game navigation functions
+        function startGame(game) {
+            document.querySelector('.menu').style.display = 'none';
+            document.querySelector('.back-btn').style.display = 'block';
+            document.getElementById('pipe-game').style.display = 'none';
+            document.querySelector('.editor').style.display = 'none';
+            document.getElementById('byte-runner').classList.remove('active');
+            document.getElementById('system-override').classList.remove('active');
+            document.getElementById(game === 'runner' ? 'byte-runner' : 'system-override').classList.add('active');
+            previousScreen = 'menu';
+        }
+
+        function switchGame(game) {
+            document.getElementById('byte-runner').classList.remove('active');
+            document.getElementById('system-override').classList.remove('active');
+            document.getElementById(game === 'runner' ? 'byte-runner' : 'system-override').classList.add('active');
+            previousScreen = game === 'runner' ? 'system-override' : 'byte-runner';
+        }
+
+        function goBack() {
+            document.querySelector('.back-btn').style.display = 'none';
+            if (previousScreen === 'menu') {
+                document.querySelector('.menu').style.display = 'block';
+                document.getElementById('pipe-game').style.display = 'block';
+                document.querySelector('.editor').style.display = 'block';
+                document.getElementById('byte-runner').classList.remove('active');
+                document.getElementById('system-override').classList.remove('active');
+            } else {
+                switchGame(previousScreen === 'byte-runner' ? 'runner' : 'hacker');
+            }
+        }
+
+        function checkRunnerAnswer() {
+            let answer = document.getElementById('runner-answer').value.toUpperCase();
+            if (answer === 'XJBP') {
+                document.getElementById('runner-feedback').innerHTML = 'Correct! Code decrypted.';
+            } else {
+                document.getElementById('runner-feedback').innerHTML = 'Incorrect. Try again.';
+            }
+        }
+
+        // Load initial level and attach start box events
+        loadLevel(1);
+    </script>
+</body>
+</html>
